@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 main_function() {
 USER_AWX='awx'
 
@@ -82,11 +84,9 @@ su -l awx -s /bin/bash -c "awx-manage migrate"
 su -l awx -s /bin/bash -c "awx-manage createsuperuser --username admin --email admin@oracle.com"
 su -l awx -s /bin/bash -c "awx-manage createsuperuser --username admin --no-input --email admin@oracle.com" 
 su -l awx -s /bin/bash -c "awx-manage update_password --username=admin --password=Welcome1#"
-
-
 #exit
 
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout /etc/tower/tower.key -out /etc/tower/tower.crt
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -subj "/C=ES/ST=Madrid/L=Madrid/O=OCS/CN=www.oracle.com" -keyout /etc/tower/tower.key -out /etc/tower/tower.crt
 
 cat << EOF | tee /etc/nginx/nginx.conf > /dev/null
 user nginx;
@@ -160,3 +160,4 @@ systemctl enable --now ol-automation-manager.service
 
 main_function 2>&1 >> /var/log/olamv2_install.log
 
+set +x
