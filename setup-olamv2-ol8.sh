@@ -154,7 +154,7 @@ su -l awx -s /bin/bash -c "awx-manage provision_instance --hostname=$(hostname -
 su -l awx -s /bin/bash -c "awx-manage register_default_execution_environments"
 su -l awx -s /bin/bash -c "awx-manage register_queue --queuename=default --hostnames=$(hostname -i)"
 su -l awx -s /bin/bash -c "awx-manage register_queue --queuename=controlplane --hostnames=$(hostname -i)"
-su -l awx -s /bin/bash -c "awx-manage create_preload_data"
+#su -l awx -s /bin/bash -c "awx-manage create_preload_data"
 #exit
 
 systemctl enable --now ol-automation-manager.service

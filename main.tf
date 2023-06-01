@@ -23,21 +23,6 @@ data "oci_bastion_session" "active_session" {
     session_id = data.oci_bastion_sessions.sessions.sessions[0].id
 }
 
-# output "bastion_session_details" {
-#     description = "Bastion Session SOCKS5"
-#     value = data.oci_bastion_session.active_session.ssh_metadata.command
-# }
-
-output "connection_details" {
-  description = "Bastion Connection Details"
-  value = <<EOF
-  
-  Create Proxy Socks5: ${replace(data.oci_bastion_session.active_session.ssh_metadata.command, "ssh -i <privateKey> -N -D 127.0.0.1:<localPort> -p 22", "ssh -i bastion_GC3_sshkey -o \"ProxyCommand=nc -X connect -x www-proxy-ams.nl.oracle.com:80 %h %p\"  -N -D 127.0.0.1:20000 -p 22")} 
-  Connect to instance: ${replace("ssh -i server.key opc@XX.XX.XX.XX -L 8444:127.0.0.2:443 -o ProxyCommand=\"nc -x 127.0.0.1:20000 %h %p\"", "XX.XX.XX.XX", oci_core_instance.instance.private_ip)}
-
-EOF
-}
-
 resource "oci_core_instance" "instance" {
   availability_domain = data.oci_identity_availability_domains.ADs.availability_domains[0].name
   compartment_id      = var.compartment_ocid
@@ -63,7 +48,6 @@ resource "oci_core_instance" "instance" {
   # Add private key
   metadata = {
     ssh_authorized_keys = file(var.ssh_public_key_path)
-    user_data           = base64encode(file("setup-olamv2-ol8.sh"))
   }
 
   agent_config {
@@ -75,5 +59,46 @@ resource "oci_core_instance" "instance" {
     }
   }
 
+  provisioner "file" {
+    source      = "setup-olamv2-ol8.sh"
+    destination = "/tmp/setup-olamv2-ol8.sh"
+    connection {
+      type        = "ssh"
+      host        = self.private_ip
+      user        = "opc"
+      private_key = file("server.key")
+      proxy_scheme  = "socks5"
+      proxy_host  = "127.0.0.1"
+      proxy_port  = "20000"
+    }
+  }
+
+  provisioner "remote-exec" {
+    inline = [
+      "sudo chmod +x /tmp/setup-olamv2-ol8.sh",
+      "sudo chown root:root /tmp/setup-olamv2-ol8.sh",
+      "sudo /bin/bash /tmp/setup-olamv2-ol8.sh"
+    ]
+    connection {
+      type        = "ssh"
+      host        = self.private_ip
+      user        = "opc"
+      private_key = file(var.ssh_private_key_path)
+      proxy_scheme  = "socks5"
+      proxy_host  = "127.0.0.1"
+      proxy_port  = "20000"
+    }
+  }
+
+}
+
+output "connection_details" {
+  description = "Bastion Connection Details"
+  value = <<EOF
+  
+  Create Proxy Socks5: ${replace(data.oci_bastion_session.active_session.ssh_metadata.command, "ssh -i <privateKey> -N -D 127.0.0.1:<localPort> -p 22", "ssh -i bastion_GC3_sshkey -o \"ProxyCommand=nc -X connect -x www-proxy-ams.nl.oracle.com:80 %h %p\"  -N -D 127.0.0.1:20000 -p 22")} 
+  Connect to instance: ${replace("ssh -i server.key opc@XX.XX.XX.XX -L 8444:127.0.0.2:443 -o ProxyCommand=\"nc -x 127.0.0.1:20000 %h %p\"", "XX.XX.XX.XX", oci_core_instance.instance.private_ip)}
+
+EOF
 }
 
