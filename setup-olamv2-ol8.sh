@@ -1,16 +1,16 @@
 #!/bin/bash
 
+main_function() {
+
 set -x
 
-main_function() {
 USER_AWX='awx'
-
 
 # resize boot volume
 /usr/libexec/oci-growfs -y 
 
 # update packages
-dnf update -y
+# dnf update -y
 
 # Enable the Oracle Linux DNF Repository and Set the Firewall Rules 
 
@@ -36,9 +36,13 @@ sed -i "s/#password_encryption.*/password_encryption = scram-sha-256/" /var/lib/
 
 systemctl enable --now postgresql
 
-su - postgres -c "createuser -S -P awx"
+su - postgres -c "createuser -S awx"
 
-su - postgres -c "createuser -S -P awx"
+su - postgres -c "createdb -O awx awx"
+
+su - postgres -c "psql -d awx -c \"alter user awx with encrypted password 'Welcome1#'\""
+
+su - postgres -c "psql -d awx -c \"grant all privileges on database awx to awx\""
 
 echo "host  all  all 0.0.0.0/0 scram-sha-256" | tee -a /var/lib/pgsql/data/pg_hba.conf > /dev/null
 
@@ -81,7 +85,6 @@ su -l awx -s /bin/bash -c "podman system migrate"
 su -l awx -s /bin/bash -c "podman pull container-registry.oracle.com/oracle_linux_automation_manager/olam-ee:latest"
 
 su -l awx -s /bin/bash -c "awx-manage migrate"
-su -l awx -s /bin/bash -c "awx-manage createsuperuser --username admin --email admin@oracle.com"
 su -l awx -s /bin/bash -c "awx-manage createsuperuser --username admin --no-input --email admin@oracle.com" 
 su -l awx -s /bin/bash -c "awx-manage update_password --username=admin --password=Welcome1#"
 #exit
@@ -156,8 +159,9 @@ su -l awx -s /bin/bash -c "awx-manage create_preload_data"
 
 systemctl enable --now ol-automation-manager.service
 
+set +x
+
 }
 
 main_function 2>&1 >> /var/log/olamv2_install.log
 
-set +x
