@@ -10,7 +10,7 @@ USER_AWX='awx'
 /usr/libexec/oci-growfs -y 
 
 # update packages
-# dnf update -y
+dnf update -y
 
 # Enable the Oracle Linux DNF Repository and Set the Firewall Rules 
 
