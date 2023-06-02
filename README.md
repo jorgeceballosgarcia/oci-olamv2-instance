@@ -9,6 +9,7 @@ Account on tenancy GC35316
 
 Private Key **bastion_GC3_sshkey**
 
+OCI Cli Configured for GC35316
 
 ## Step by Step GC3
 
