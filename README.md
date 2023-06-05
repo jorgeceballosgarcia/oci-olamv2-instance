@@ -1,6 +1,16 @@
 # oci-olamv2-instance
 Terraform script for provision Oracle Automation Manager V2
 
+## What is OLAM v2?
+
+Description
+
+https://www.oracle.com/a/ocom/docs/oracle-linux-automation-manager-ds.pdf
+
+License include with Premier Support of Oracle Linux
+
+https://www.oracle.com/a/ocom/docs/linux/value-of-oraclelinux-support.pdf
+
 ## Requirements
 
 Oracle VPN
@@ -41,7 +51,7 @@ Example output
 
 In the first terminal, set Bastion Proxy
 
-`source setProxy.sh oracle`
+`source setProxy.sh bastion`
 
 Generate Public/Private key for instance
 
@@ -49,10 +59,13 @@ Generate Public/Private key for instance
 
 Launch terraform
 
+Modify **compartment_ocid** on terraform.tfvars with your compartment on GC3
+
 ```
 terraform init
 terraform apply
 ```
+20 minutes later...
 
 The output of terraform show you the info to connect the instance and create port forwarding
 
