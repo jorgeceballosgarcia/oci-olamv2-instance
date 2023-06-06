@@ -16,8 +16,6 @@ https://www.oracle.com/a/ocom/docs/linux/value-of-oraclelinux-support.pdf
 
 Terraform
 
-Ansible
-
 OCI Cli Configured for your tenancy
 
 ## OCI Requirements

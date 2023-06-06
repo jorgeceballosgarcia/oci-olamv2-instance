@@ -12,13 +12,17 @@ License include with Premier Support of Oracle Linux
 
 https://www.oracle.com/a/ocom/docs/linux/value-of-oraclelinux-support.pdf
 
-## Requirements
+## Local Requirements
 
-Terraform
+Terraform (terraform_bash)
 
-Ansible
+Ansible (terraform_ansible)
 
-OCI Cli Configured for your tenancy
+OCI Cli Configured for your tenancy (both)
+
+## OCI Requirements
+
+Public subnet with ssh and https connections allowed
 
 ## Choose
 
