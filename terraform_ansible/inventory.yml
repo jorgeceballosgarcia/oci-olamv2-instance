@@ -1,0 +1,8 @@
+instance:
+  hosts:
+    oci-olamv2-instance:
+      ansible_ssh_host: XX.XX.XX.XXX
+      ansible_ssh_user: opc
+      ansible_ssh_private_key_file: server.key
+      ansible_python_interpreter: /usr/bin/python
+      olamv2_password: Welcome1#

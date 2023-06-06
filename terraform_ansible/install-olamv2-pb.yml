@@ -1,0 +1,254 @@
+---
+
+- name: Install OLAM v2
+  hosts: "instance"
+  gather_facts: false
+  tasks:
+
+    - name: Resize disk
+      become: true
+      ansible.builtin.shell: /usr/libexec/oci-growfs -y
+    
+    - name: Upgrade all packages
+      become: true
+      ansible.builtin.dnf:
+        name: "*"
+        state: latest    
+
+    - name: Add repo
+      become: true
+      ansible.builtin.shell: dnf config-manager --enable ol8_baseos_latest
+
+    - name: Install the latest version of oraclelinux-automation-manager-release-el8
+      become: true
+      ansible.builtin.dnf:
+        name: oraclelinux-automation-manager-release-el8
+        state: present
+
+    - name: Disable repo
+      become: true
+      ansible.builtin.shell: dnf config-manager --disable ol8_automation
+
+    - name: Enable repos
+      become: true
+      ansible.builtin.shell: dnf config-manager --enable ol8_automation2 ol8_addons ol8_UEKR7 ol8_appstream
+
+    - name: Permit https
+      become: true
+      ansible.builtin.shell: firewall-cmd --add-service=https --permanent
+
+    - name: Reload firewall
+      become: true
+      ansible.builtin.shell: firewall-cmd --reload
+
+    - name: Reset postgresql
+      become: true
+      ansible.builtin.shell: dnf module reset postgresql
+
+    - name: Module enable postgresql:13
+      become: true
+      ansible.builtin.shell: dnf -y module enable postgresql:13
+
+    - name: Install the latest version of postgresql-server
+      become: true
+      ansible.builtin.dnf:
+        name: postgresql-server
+        state: present
+
+    - name: Postgresql initdb
+      become: true
+      ansible.builtin.shell: postgresql-setup --initdb
+
+    - name: Change password encryption
+      become: true
+      ansible.builtin.shell: sed -i "s/#password_encryption.*/password_encryption = scram-sha-256/" /var/lib/pgsql/data/postgresql.conf
+
+    - name: Enable postgresql
+      become: true
+      ansible.builtin.shell: systemctl enable --now postgresql
+
+    - name: Createuser awx
+      become: true
+      become_user: postgres
+      ansible.builtin.shell: createuser -S awx
+
+    - name: Createdb awx
+      become: true
+      become_user: postgres
+      ansible.builtin.shell: createdb -O awx awx
+
+    - name: Alter user awx
+      become: true
+      become_user: postgres
+      ansible.builtin.shell: psql -d awx -c "alter user awx with encrypted password '{{ olamv2_password }}'"
+
+    - name: Alter user awx
+      become: true
+      become_user: postgres
+      ansible.builtin.shell: psql -d awx -c "grant all privileges on database awx to awx"
+
+    - name: Conf dba
+      become: true
+      ansible.builtin.shell: echo "host  all  all 0.0.0.0/0 scram-sha-256" | tee -a /var/lib/pgsql/data/pg_hba.conf > /dev/null
+
+    - name: Conf hostname
+      become: true
+      ansible.builtin.shell: sed -i "/^#port = 5432/i listen_addresses = '"$(hostname -i)"'" /var/lib/pgsql/data/postgresql.conf
+
+    - name: Restart postgresql
+      become: true
+      ansible.builtin.shell: systemctl restart postgresql
+
+    - name: Install the latest version of ol-automation-manager
+      become: true
+      ansible.builtin.dnf:
+        name: ol-automation-manager
+        state: present
+
+    - name: Config redis
+      become: true
+      ansible.builtin.shell: sed -i '/^# unixsocketperm/a unixsocket /var/run/redis/redis.sock\nunixsocketperm 775' /etc/redis.conf
+
+    - name: Config olam.py
+      become: true
+      ansible.builtin.shell: |
+        cat << EOF | tee -a /etc/tower/conf.d/olam.py > /dev/null
+        CLUSTER_HOST_ID = '$(hostname -i)'
+        EOF
+
+    - name: Config olam.py
+      become: true
+      ansible.builtin.shell: |
+        cat << EOF | tee -a /etc/tower/conf.d/olam.py > /dev/null
+        CLUSTER_HOST_ID = '$(hostname -i)'
+        EOF
+
+    - name: Permissions olam.py
+      become: true
+      ansible.builtin.shell: |
+        chown awx.awx /etc/tower/conf.d/olam.py
+        chmod 0640 /etc/tower/conf.d/olam.py
+
+    - name: Config db.py
+      become: true
+      ansible.builtin.shell: |
+        cat << EOF | tee /etc/tower/conf.d/db.py > /dev/null
+        DATABASES = {
+            'default': {
+                'ATOMIC_REQUESTS': True,
+                'ENGINE': 'awx.main.db.profiled_pg',
+                'NAME': 'awx',
+                'USER': 'awx',
+                'PASSWORD': '{{ olamv2_password }}',
+                'HOST': '$(hostname -i)',
+                'PORT': '5432',
+            }
+        }
+        EOF
+
+    - name: Permissions db.py
+      become: true
+      ansible.builtin.shell: |
+        chown awx.awx /etc/tower/conf.d/db.py
+        chmod 0640 /etc/tower/conf.d/db.py
+
+    - name: Podman migrate
+      become: true
+      become_user: awx
+      ansible.builtin.shell: podman system migrate
+
+    - name: Podman pull
+      become: true
+      become_user: awx
+      ansible.builtin.shell: podman pull container-registry.oracle.com/oracle_linux_automation_manager/olam-ee:latest
+
+    - name: awx-manage
+      become: true
+      become_user: awx
+      ansible.builtin.shell: |
+        awx-manage migrate
+        awx-manage createsuperuser --username admin --no-input --email admin@oracle.com
+        awx-manage update_password --username=admin --password={{ olamv2_password }}
+
+    - name: Create cert
+      become: true
+      ansible.builtin.shell: openssl req -x509 -nodes -days 365 -newkey rsa:2048 -subj "/C=ES/ST=Madrid/L=Madrid/O=OCS/CN=www.oracle.com" -keyout /etc/tower/tower.key -out /etc/tower/tower.crt
+
+    - name: Config nginx
+      become: true
+      ansible.builtin.shell: |
+        cat << EOF | tee /etc/nginx/nginx.conf > /dev/null
+        user nginx;
+        worker_processes auto;
+        error_log /var/log/nginx/error.log;
+        pid /run/nginx.pid;
+
+        # Load dynamic modules. See /usr/share/doc/nginx/README.dynamic.
+        include /usr/share/nginx/modules/*.conf;
+
+        events {
+            worker_connections 1024;
+        }
+
+        http {
+            log_format  main  '$remote_addr - $remote_user [$time_local] "$request" '
+                              '$status $body_bytes_sent "$http_referer" '
+                              '"$http_user_agent" "$http_x_forwarded_for"';
+
+            access_log  /var/log/nginx/access.log  main;
+
+            sendfile            on;
+            tcp_nopush          on;
+            tcp_nodelay         on;
+            keepalive_timeout   65;
+            types_hash_max_size 2048;
+
+            include             /etc/nginx/mime.types;
+            default_type        application/octet-stream;
+
+            # Load modular configuration files from the /etc/nginx/conf.d directory.
+            # See http://nginx.org/en/docs/ngx_core_module.html#include
+            # for more information.
+            include /etc/nginx/conf.d/*.conf;
+        }
+        EOF
+
+    - name: Config receptor.conf
+      become: true
+      ansible.builtin.shell: |
+        cat << EOF | tee /etc/receptor/receptor.conf > /dev/null
+        ---
+        - node:
+            id: $(hostname -i)
+
+        - log-level: debug
+
+        - tcp-listener:
+            port: 27199
+
+        - control-service:
+            service: control
+            filename: /var/run/receptor/receptor.sock
+
+        - work-command:
+            worktype: local
+            command: /var/lib/ol-automation-manager/venv/awx/bin/ansible-runner
+            params: worker
+            allowruntimeparams: true
+            verifysignature: false
+        EOF
+
+    - name: awx-manage provision
+      become: true
+      become_user: awx
+      ansible.builtin.shell: |
+        awx-manage provision_instance --hostname=$(hostname -i) --node_type=hybrid
+        awx-manage register_default_execution_environments
+        awx-manage register_queue --queuename=default --hostnames=$(hostname -i)
+        awx-manage register_queue --queuename=controlplane --hostnames=$(hostname -i)
+
+    - name: Config ol-automation-manager.service
+      become: true
+      ansible.builtin.shell: systemctl enable --now ol-automation-manager.service
+
+

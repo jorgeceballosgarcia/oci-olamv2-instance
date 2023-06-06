@@ -1,5 +1,6 @@
 # oci-olamv2-instance
-Terraform script for provision Oracle Automation Manager V2
+
+Provision Oracle Automation Manager V2
 
 ## What is OLAM v2?
 
@@ -13,82 +14,16 @@ https://www.oracle.com/a/ocom/docs/linux/value-of-oraclelinux-support.pdf
 
 ## Requirements
 
-Oracle VPN
+Terraform
 
-Account on tenancy GC35316
+Ansible
 
-Private Key **bastion_GC3_sshkey**
+OCI Cli Configured for your tenancy
 
-OCI Cli Configured for GC35316
+## Choose
 
-## Step by Step GC3
+Folder terraform_ansible deploy an instance and install OLAM with Ansible
 
-Summary
-
-1. Connect Oracle VPN
-2. Set Oracle Proxy on Terminal
-3. Get Bastion Socks5 Proxy
-4. Open Bastion Socks5 Proxy
-5. Set Bastion Socks5 Proxy on terminal
-6. Generate Keys
-7. Launch terraform
-
-List of commands
-
-Open one terminal and set Oracle Proxy
-
-`source setProxy.sh oracle`
-
-Get data for create Bastion Socks5 Proxy
-
-`/bin/bash getBastionProxy.sh`
-
-Open second terminal and create bastion proxy with the result
-
-Example output
-
-`ssh -i bastion_GC3_sshkey -o "ProxyCommand=nc -X connect -x www-proxy-ams.nl.oracle.com:80 %h %p"  -N -D 127.0.0.1:20000 -p 22 ocid1.bastionsession.oc1.eu-milan-1.amaaaaaajaynoiyaoihixrgbapndcnd4qtheis5rpggeclteyr66qjq3kglq@host.bastion.eu-milan-1.oci.oraclecloud.com`
-
-In the first terminal, set Bastion Proxy
-
-`source setProxy.sh bastion`
-
-Generate Public/Private key for instance
-
-`/bin/bash generate-keys.sh`
-
-Launch terraform
-
-Modify **compartment_ocid** on terraform.tfvars with your compartment on GC3
-
-```
-terraform init
-terraform apply
-```
-20 minutes later...
-
-The output of terraform show you the info to connect the instance and create port forwarding
-
-Example:
-
-```
-Apply complete! Resources: 1 added, 0 changed, 0 destroyed.
-
-Outputs:
-
-connection_details = <<EOT
-
-  Create Proxy Socks5: ssh -i bastion_GC3_sshkey -o "ProxyCommand=nc -X connect -x www-proxy-ams.nl.oracle.com:80 %h %p"  -N -D 127.0.0.1:20000 -p 22 ocid1.bastionsession.oc1.eu-milan-1.amaaaaaajaynoiya5fsgoemt5em4gjnvkhvo7u5pnnlszmh7jotvxdx5uuwq@host.bastion.eu-milan-1.oci.oraclecloud.com
-  Connect to instance: ssh -i server.key opc@10.0.1.215 -L 8444:127.0.0.2:443 -o ProxyCommand="nc -x 127.0.0.1:20000 %h %p"
+Folder terraform_bash deploy an instance and install OLAM with Bash Script
 
 
-EOT
-```
-
-Open other terminal and execute "Connect to instance" command
-
-Now you can access to OLAM V2
-
-https://localhosst:8444/
-
-![alt](images/SCR-20230601-ogjq.png)
