@@ -59,9 +59,9 @@ connection_details = <<EOT
 EOT
 ```
 
-Modify ansible_ssh_host on inventory.yml with your instance public ip (you get the ip from "connection_details")
+Modify **ansible_ssh_host** on inventory.yml with your instance public ip (you get the ip from "connection_details")
 
-Modify olamv2_password on inventory.yml with your password
+Modify **olamv2_password** on inventory.yml with your password
 
 Execute Ansible
 
